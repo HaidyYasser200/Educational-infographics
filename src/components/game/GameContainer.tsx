@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { LessonCard } from './LessonCard';
@@ -8,7 +8,7 @@ import { FillBlankGame } from './FillBlankGame';
 import { DragDropGame } from './DragDropGame';
 import { EmotionDisplay } from './EmotionDisplay';
 import { stages } from '@/data/stages';
-import { useEmotionDetection } from '@/hooks/useEmotionDetection';
+import { useEmotionDetection, EmotionType } from '@/hooks/useEmotionDetection';
 import { useProgress } from '@/hooks/useProgress';
 import { useToast } from '@/hooks/use-toast';
 
@@ -24,12 +24,14 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
   const [phase, setPhase] = useState<GamePhase>('lesson');
   const [startTime, setStartTime] = useState<number>(0);
   const [cameraPermission, setCameraPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
+  const emotionsCollected = useRef<EmotionType[]>([]);
   
   const stage = stages.find(s => s.id === stageId);
   const { 
     videoRef, 
     currentEmotion, 
     isModelLoaded, 
+    isLoading: isModelLoading,
     startCamera, 
     stopCamera, 
     startDetection,
@@ -38,18 +40,27 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
   const { saveProgress, logEmotion } = useProgress();
   const { toast } = useToast();
 
-  // Request camera permission
+  // Request camera permission and start detection
   const requestCameraPermission = useCallback(async () => {
+    console.log('Requesting camera permission...');
     const success = await startCamera();
     if (success) {
       setCameraPermission('granted');
-      startDetection(30000); // Capture every 30 seconds
+      // Start detection every 5 seconds for better sampling
+      startDetection(5000);
       toast({
         title: "تم تفعيل الكاميرا",
         description: "سيتم تحليل تعابيرك أثناء اللعب"
       });
+      console.log('Camera started successfully');
     } else {
       setCameraPermission('denied');
+      toast({
+        title: "فشل تشغيل الكاميرا",
+        description: "يرجى السماح بالوصول للكاميرا",
+        variant: "destructive"
+      });
+      console.log('Camera permission denied');
     }
   }, [startCamera, startDetection, toast]);
 
@@ -57,19 +68,45 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
   useEffect(() => {
     return () => {
       stopCamera();
+      emotionsCollected.current = [];
     };
   }, [stopCamera]);
 
-  // Log emotions when they change
+  // Collect emotions during gameplay (don't save yet, just collect)
   useEffect(() => {
     if (currentEmotion && phase === 'game') {
-      logEmotion(stageId, currentEmotion);
+      emotionsCollected.current.push(currentEmotion.emotion);
+      console.log('Emotion collected:', currentEmotion.emotion, 'Total:', emotionsCollected.current.length);
     }
-  }, [currentEmotion, phase, stageId, logEmotion]);
+  }, [currentEmotion, phase]);
+
+  // Calculate dominant emotion from collected emotions
+  const getDominantEmotion = useCallback(() => {
+    const emotions = emotionsCollected.current;
+    if (emotions.length === 0) return null;
+
+    const frequency: Record<string, number> = {};
+    emotions.forEach(e => {
+      frequency[e] = (frequency[e] || 0) + 1;
+    });
+
+    let maxCount = 0;
+    let dominant: EmotionType = 'neutral';
+    Object.entries(frequency).forEach(([emotion, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        dominant = emotion as EmotionType;
+      }
+    });
+
+    console.log('Emotion frequency:', frequency, 'Dominant:', dominant);
+    return dominant;
+  }, []);
 
   const handleStartGame = useCallback(() => {
     setPhase('game');
     setStartTime(Date.now());
+    emotionsCollected.current = []; // Reset emotions for new game
     
     // Request camera if not already done
     if (cameraPermission === 'pending') {
@@ -84,6 +121,48 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
     const timeSpent = Math.round((Date.now() - startTime) / 1000);
     const isCompleted = stage ? score >= stage.requiredScore : false;
 
+    // Get dominant emotion and save it ONCE at the end
+    const dominantEmotion = getDominantEmotion();
+    console.log('Game complete! Dominant emotion:', dominantEmotion, 'Collected emotions:', emotionsCollected.current.length);
+    
+    if (dominantEmotion) {
+      // Calculate average confidence for the dominant emotion
+      const emotionMap: Record<string, { arabic: string; emoji: string }> = {
+        happy: { arabic: 'سعيد', emoji: '😊' },
+        neutral: { arabic: 'محايد', emoji: '😐' },
+        sad: { arabic: 'حزين', emoji: '😢' },
+        angry: { arabic: 'غضب', emoji: '😠' },
+        surprised: { arabic: 'مندهش', emoji: '😲' },
+        fearful: { arabic: 'خائف', emoji: '😨' },
+        disgusted: { arabic: 'ملل', emoji: '😴' }
+      };
+      
+      const dominantCount = emotionsCollected.current.filter(e => e === dominantEmotion).length;
+      const totalCount = emotionsCollected.current.length;
+      const confidence = totalCount > 0 ? dominantCount / totalCount : 0.5;
+      
+      const emotionResult = {
+        emotion: dominantEmotion,
+        confidence: confidence,
+        arabicLabel: emotionMap[dominantEmotion]?.arabic || 'محايد',
+        emoji: emotionMap[dominantEmotion]?.emoji || '😐'
+      };
+      
+      // Save ONLY the dominant emotion at the end of the stage
+      const result = await logEmotion(stageId, emotionResult);
+      console.log('Emotion saved to database:', result);
+      
+      toast({
+        title: `الشعور السائد: ${emotionResult.emoji} ${emotionResult.arabicLabel}`,
+        description: `تم تسجيل شعورك في المرحلة ${stageId}`
+      });
+    } else {
+      console.log('No emotions collected during this game');
+    }
+
+    // Reset collected emotions
+    emotionsCollected.current = [];
+
     await saveProgress({
       levelNumber: stageId,
       gameType: stage?.gameType || 'unknown',
@@ -96,7 +175,7 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
     setTimeout(() => {
       onComplete(score);
     }, 2000);
-  }, [stageId, stage, startTime, saveProgress, stopCamera, onComplete]);
+  }, [stageId, stage, startTime, saveProgress, stopCamera, onComplete, getDominantEmotion, logEmotion, toast]);
 
   if (!stage) {
     return (
@@ -169,12 +248,14 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
         </motion.div>
       )}
 
-      {/* Emotion Display */}
-      {cameraPermission === 'granted' && phase === 'game' && isModelLoaded && (
+      {/* Emotion Display - Show even while loading */}
+      {cameraPermission === 'granted' && phase === 'game' && (
         <EmotionDisplay
           videoRef={videoRef}
           currentEmotion={currentEmotion}
-          isActive={true}
+          isActive={isModelLoaded}
+          isLoading={isModelLoading}
+          emotionsCount={emotionsCollected.current.length}
         />
       )}
     </div>
