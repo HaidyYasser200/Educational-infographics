@@ -43,16 +43,27 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
   // Request camera permission and start detection
   const requestCameraPermission = useCallback(async () => {
     console.log('Requesting camera permission...');
+    // First set permission to granted so the video element renders
+    setCameraPermission('granted');
+    
+    // Small delay to let video element render
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
     const success = await startCamera();
     if (success) {
-      setCameraPermission('granted');
+      // Wait for models to load if not already loaded
+      if (!isModelLoaded) {
+        console.log('Waiting for models to load...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
       // Start detection every 5 seconds for better sampling
       startDetection(5000);
       toast({
         title: "تم تفعيل الكاميرا",
         description: "سيتم تحليل تعابيرك أثناء اللعب"
       });
-      console.log('Camera started successfully');
+      console.log('Camera started successfully, detection started');
     } else {
       setCameraPermission('denied');
       toast({
@@ -62,7 +73,7 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
       });
       console.log('Camera permission denied');
     }
-  }, [startCamera, startDetection, toast]);
+  }, [startCamera, startDetection, toast, isModelLoaded]);
 
   // Cleanup on unmount
   useEffect(() => {

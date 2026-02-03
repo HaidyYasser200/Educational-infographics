@@ -53,7 +53,7 @@ export const useEmotionDetection = () => {
     }
   }, []);
 
-  // Start camera
+  // Start camera - waits for video element to be available
   const startCamera = useCallback(async () => {
     try {
       console.log('Starting camera...');
@@ -62,13 +62,37 @@ export const useEmotionDetection = () => {
       });
       streamRef.current = stream;
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        console.log('Camera started, video playing');
+      // Wait for video element to be available (up to 3 seconds)
+      let attempts = 0;
+      while (!videoRef.current && attempts < 30) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
       }
       
-      return true;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        
+        // Wait for video to be ready to play
+        await new Promise<void>((resolve, reject) => {
+          const video = videoRef.current!;
+          video.onloadedmetadata = () => {
+            video.play()
+              .then(() => {
+                console.log('Camera started, video playing, dimensions:', video.videoWidth, 'x', video.videoHeight);
+                resolve();
+              })
+              .catch(reject);
+          };
+          video.onerror = reject;
+          // Timeout after 5 seconds
+          setTimeout(() => resolve(), 5000);
+        });
+        
+        return true;
+      } else {
+        console.error('Video element not found after waiting');
+        return false;
+      }
     } catch (err) {
       setError('فشل في الوصول إلى الكاميرا. يرجى السماح بالوصول.');
       console.error('Error accessing camera:', err);
@@ -91,14 +115,28 @@ export const useEmotionDetection = () => {
   // Detect emotion from video
   const detectEmotion = useCallback(async (): Promise<EmotionResult | null> => {
     if (!videoRef.current || !isModelLoaded) {
-      console.log('Cannot detect: video or model not ready', { video: !!videoRef.current, model: isModelLoaded });
+      console.log('Cannot detect: video or model not ready', { 
+        video: !!videoRef.current, 
+        model: isModelLoaded,
+        videoReady: videoRef.current?.readyState 
+      });
+      return null;
+    }
+
+    // Check video is actually playing and has dimensions
+    const video = videoRef.current;
+    if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+      console.log('Video not ready yet, readyState:', video.readyState, 'dimensions:', video.videoWidth, 'x', video.videoHeight);
       return null;
     }
 
     try {
-      console.log('Detecting emotion...');
+      console.log('Detecting emotion... video dimensions:', video.videoWidth, 'x', video.videoHeight);
       const detections = await faceapi
-        .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
+        .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({
+          inputSize: 224,
+          scoreThreshold: 0.3
+        }))
         .withFaceExpressions();
 
       if (detections && detections.expressions) {
@@ -116,13 +154,13 @@ export const useEmotionDetection = () => {
           emoji: mappedEmotion.emoji
         };
 
-        console.log('Emotion detected:', result.emotion, 'confidence:', Math.round(result.confidence * 100) + '%');
+        console.log('✅ Emotion detected:', result.emotion, 'confidence:', Math.round(result.confidence * 100) + '%');
         setCurrentEmotion(result);
         setEmotionHistory(prev => [...prev.slice(-50), result]);
         
         return result;
       } else {
-        console.log('No face detected');
+        console.log('❌ No face detected in frame');
       }
     } catch (err) {
       console.error('Error detecting emotion:', err);
@@ -138,14 +176,20 @@ export const useEmotionDetection = () => {
       clearInterval(intervalRef.current);
     }
     
-    // Initial detection after a short delay to let camera warm up
+    // Initial detection after camera is fully ready
+    const runDetection = async () => {
+      const result = await detectEmotion();
+      console.log('Detection result:', result ? result.emotion : 'no face');
+    };
+    
+    // Wait longer for camera to fully initialize
     setTimeout(() => {
-      detectEmotion();
-    }, 1000);
+      runDetection();
+    }, 2000);
     
     // Set up interval
     intervalRef.current = setInterval(() => {
-      detectEmotion();
+      runDetection();
     }, intervalMs);
   }, [detectEmotion]);
 
