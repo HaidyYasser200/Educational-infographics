@@ -34,6 +34,7 @@ export const useEmotionDetection = () => {
   const loadModels = useCallback(async () => {
     try {
       setIsLoading(true);
+      console.log('Loading face-api models...');
       const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
       
       await Promise.all([
@@ -43,6 +44,7 @@ export const useEmotionDetection = () => {
       
       setIsModelLoaded(true);
       setError(null);
+      console.log('Face-api models loaded successfully');
     } catch (err) {
       setError('فشل في تحميل نماذج التعرف على الوجه');
       console.error('Error loading models:', err);
@@ -54,6 +56,7 @@ export const useEmotionDetection = () => {
   // Start camera
   const startCamera = useCallback(async () => {
     try {
+      console.log('Starting camera...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: 320, height: 240 }
       });
@@ -62,6 +65,7 @@ export const useEmotionDetection = () => {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        console.log('Camera started, video playing');
       }
       
       return true;
@@ -86,9 +90,13 @@ export const useEmotionDetection = () => {
 
   // Detect emotion from video
   const detectEmotion = useCallback(async (): Promise<EmotionResult | null> => {
-    if (!videoRef.current || !isModelLoaded) return null;
+    if (!videoRef.current || !isModelLoaded) {
+      console.log('Cannot detect: video or model not ready', { video: !!videoRef.current, model: isModelLoaded });
+      return null;
+    }
 
     try {
+      console.log('Detecting emotion...');
       const detections = await faceapi
         .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions())
         .withFaceExpressions();
@@ -108,10 +116,13 @@ export const useEmotionDetection = () => {
           emoji: mappedEmotion.emoji
         };
 
+        console.log('Emotion detected:', result.emotion, 'confidence:', Math.round(result.confidence * 100) + '%');
         setCurrentEmotion(result);
         setEmotionHistory(prev => [...prev.slice(-50), result]);
         
         return result;
+      } else {
+        console.log('No face detected');
       }
     } catch (err) {
       console.error('Error detecting emotion:', err);
@@ -121,13 +132,16 @@ export const useEmotionDetection = () => {
   }, [isModelLoaded]);
 
   // Start continuous detection
-  const startDetection = useCallback((intervalMs: number = 30000) => {
+  const startDetection = useCallback((intervalMs: number = 5000) => {
+    console.log('Starting emotion detection with interval:', intervalMs, 'ms');
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
     
-    // Initial detection
-    detectEmotion();
+    // Initial detection after a short delay to let camera warm up
+    setTimeout(() => {
+      detectEmotion();
+    }, 1000);
     
     // Set up interval
     intervalRef.current = setInterval(() => {

@@ -62,20 +62,31 @@ export const useProgress = () => {
 
   // Log emotion to both databases
   const logEmotion = useCallback(async (levelNumber: number, emotion: EmotionResult) => {
-    if (!user) return { error: 'Not authenticated' };
+    if (!user) {
+      console.log('Cannot log emotion: user not authenticated');
+      return { error: 'Not authenticated' };
+    }
 
     try {
+      console.log('Saving emotion to database:', { levelNumber, emotion: emotion.emotion, confidence: emotion.confidence });
+      
       // Save to Lovable Cloud (Supabase)
-      const { error: supabaseError } = await supabase
+      const { error: supabaseError, data } = await supabase
         .from('emotion_logs')
         .insert({
           user_id: user.id,
           level_number: levelNumber,
           emotion: emotion.emotion,
           confidence: emotion.confidence
-        });
+        })
+        .select();
 
-      if (supabaseError) throw supabaseError;
+      if (supabaseError) {
+        console.error('Supabase error saving emotion:', supabaseError);
+        throw supabaseError;
+      }
+      
+      console.log('Emotion saved successfully to Supabase:', data);
 
       // Save to Firebase (if configured)
       await logEmotionToFirebase({
@@ -85,7 +96,7 @@ export const useProgress = () => {
         confidence: emotion.confidence
       });
 
-      return { error: null };
+      return { error: null, data };
     } catch (error) {
       console.error('Error logging emotion:', error);
       return { error };
