@@ -1,50 +1,41 @@
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { stages, getGameTypeIcon, getGameTypeName } from '@/data/stages';
-
 interface StageMapProps {
   currentLevel: number;
   completedLevels: number[];
   onSelectStage: (stageId: number) => void;
 }
-
-export const StageMap = ({ currentLevel, completedLevels, onSelectStage }: StageMapProps) => {
-  return (
-    <div className="max-w-4xl mx-auto">
+export const StageMap = ({
+  currentLevel,
+  completedLevels,
+  onSelectStage
+}: StageMapProps) => {
+  return <div className="max-w-4xl mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-gradient mb-2">🎮 رحلة التعلم</h1>
-        <p className="text-xl text-muted-foreground">
-          أكملت {completedLevels.length} من {stages.length} مراحل
-        </p>
+        
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {stages.map((stage, index) => {
-          const isCompleted = completedLevels.includes(stage.id);
-          const isLocked = stage.id > currentLevel && !isCompleted;
-          const isCurrent = stage.id === currentLevel;
-
-          return (
-            <motion.div
-              key={stage.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              whileHover={{ scale: isLocked ? 1 : 1.05 }}
-              whileTap={{ scale: isLocked ? 1 : 0.95 }}
-            >
-              <Card
-                className={`cursor-pointer transition-all border-2 relative overflow-hidden ${
-                  isLocked
-                    ? 'opacity-50 cursor-not-allowed bg-muted'
-                    : isCompleted
-                    ? 'bg-success/10 border-success'
-                    : isCurrent
-                    ? 'border-primary animate-pulse-glow'
-                    : 'hover:border-primary/50'
-                }`}
-                onClick={() => !isLocked && onSelectStage(stage.id)}
-              >
+        const isCompleted = completedLevels.includes(stage.id);
+        const isLocked = stage.id > currentLevel && !isCompleted;
+        const isCurrent = stage.id === currentLevel;
+        return <motion.div key={stage.id} initial={{
+          opacity: 0,
+          y: 20
+        }} animate={{
+          opacity: 1,
+          y: 0
+        }} transition={{
+          delay: index * 0.05
+        }} whileHover={{
+          scale: isLocked ? 1 : 1.05
+        }} whileTap={{
+          scale: isLocked ? 1 : 0.95
+        }}>
+              <Card className={`cursor-pointer transition-all border-2 relative overflow-hidden ${isLocked ? 'opacity-50 cursor-not-allowed bg-muted' : isCompleted ? 'bg-success/10 border-success' : isCurrent ? 'border-primary animate-pulse-glow' : 'hover:border-primary/50'}`} onClick={() => !isLocked && onSelectStage(stage.id)}>
                 {/* Gradient Background */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${stage.color} opacity-10`} />
                 
@@ -58,21 +49,14 @@ export const StageMap = ({ currentLevel, completedLevels, onSelectStage }: Stage
                   
                   {/* Status Badge */}
                   <div className="mt-2">
-                    {isLocked ? (
-                      <span className="text-lg">🔒</span>
-                    ) : isCompleted ? (
-                      <span className="text-lg">✅</span>
-                    ) : isCurrent ? (
-                      <span className="inline-block px-2 py-1 bg-primary text-primary-foreground text-xs rounded-full">
+                    {isLocked ? <span className="text-lg">🔒</span> : isCompleted ? <span className="text-lg">✅</span> : isCurrent ? <span className="inline-block px-2 py-1 bg-primary text-primary-foreground text-xs rounded-full">
                         الحالي
-                      </span>
-                    ) : null}
+                      </span> : null}
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
-          );
-        })}
+            </motion.div>;
+      })}
       </div>
 
       {/* Legend */}
@@ -90,6 +74,5 @@ export const StageMap = ({ currentLevel, completedLevels, onSelectStage }: Stage
           <span>مقفل</span>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
