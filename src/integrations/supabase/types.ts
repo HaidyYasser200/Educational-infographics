@@ -22,6 +22,7 @@ export type Database = {
           id: string
           level_number: number
           user_id: string
+          username: string | null
         }
         Insert: {
           captured_at?: string
@@ -30,6 +31,7 @@ export type Database = {
           id?: string
           level_number: number
           user_id: string
+          username?: string | null
         }
         Update: {
           captured_at?: string
@@ -38,6 +40,7 @@ export type Database = {
           id?: string
           level_number?: number
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }
