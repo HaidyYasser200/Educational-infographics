@@ -91,7 +91,7 @@ export const MatchingGame = ({ items, onComplete }: MatchingGameProps) => {
         {/* Images Column */}
         <div className="space-y-4">
           <h3 className="text-xl font-bold text-center mb-4">🎯 الرموز</h3>
-          {shuffledImages.map((item) => (
+          {shuffledRight.map((item) => (
             <motion.div
               key={item.id}
               whileHover={{ scale: matchedPairs.includes(item.id) ? 1 : 1.02 }}
