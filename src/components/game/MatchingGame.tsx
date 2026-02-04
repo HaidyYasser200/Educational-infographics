@@ -88,9 +88,9 @@ export const MatchingGame = ({ items, onComplete }: MatchingGameProps) => {
           ))}
         </div>
 
-        {/* Images Column */}
+        {/* Answers Column */}
         <div className="space-y-4">
-          <h3 className="text-xl font-bold text-center mb-4">🎯 الرموز</h3>
+          <h3 className="text-xl font-bold text-center mb-4">🎯 الإجابات</h3>
           {shuffledImages.map((item) => (
             <motion.div
               key={item.id}
@@ -109,7 +109,7 @@ export const MatchingGame = ({ items, onComplete }: MatchingGameProps) => {
                 onClick={() => handleImageClick(item.id)}
               >
                 <CardContent className="p-4 text-center">
-                  <span className="text-5xl">{item.image}</span>
+                  <span className="text-lg font-medium">{item.image}</span>
                 </CardContent>
               </Card>
             </motion.div>
