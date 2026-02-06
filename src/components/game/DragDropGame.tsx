@@ -1,73 +1,50 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { DragDropItem } from '@/data/stages';
 
-interface SortableItemProps {
+interface TapItemProps {
   id: string;
   content: string;
+  index: number;
+  isSelected: boolean;
   isCorrect?: boolean;
   showResult: boolean;
+  onTap: (index: number) => void;
 }
 
-const SortableItem = ({ id, content, isCorrect, showResult }: SortableItemProps) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition
-  };
-
+const TapItem = ({ id, content, index, isSelected, isCorrect, showResult, onTap }: TapItemProps) => {
   return (
     <motion.div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={`cursor-grab active:cursor-grabbing ${isDragging ? 'z-50' : ''}`}
+      className="cursor-pointer"
       whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
       layout
+      onClick={() => onTap(index)}
     >
       <Card className={`border-2 transition-all ${
         showResult
           ? isCorrect
             ? 'bg-success/20 border-success'
             : 'bg-destructive/20 border-destructive'
-          : isDragging
-          ? 'shadow-xl border-primary'
+          : isSelected
+          ? 'shadow-xl border-primary bg-primary/10 ring-2 ring-primary ring-offset-2'
           : 'hover:border-primary/50'
       }`}>
         <CardContent className="p-4 flex items-center gap-4">
-          <span className="text-2xl">☰</span>
+          <span className={`text-2xl transition-transform ${isSelected ? 'scale-125' : ''}`}>
+            {isSelected ? '👆' : '☰'}
+          </span>
           <span className="text-lg font-medium flex-1">{content}</span>
           {showResult && (
             <span className="text-2xl">
               {isCorrect ? '✅' : '❌'}
+            </span>
+          )}
+          {isSelected && !showResult && (
+            <span className="text-sm text-primary font-medium animate-pulse">
+              اختر العنصر للتبديل
             </span>
           )}
         </CardContent>
@@ -85,27 +62,31 @@ export const DragDropGame = ({ items, onComplete }: DragDropGameProps) => {
   const [orderedItems, setOrderedItems] = useState(() => 
     [...items].sort(() => Math.random() - 0.5)
   );
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [score, setScore] = useState(0);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates
-    })
-  );
+  const handleTap = useCallback((index: number) => {
+    if (showResult) return;
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      setOrderedItems((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+    if (selectedIndex === null) {
+      // First tap - select the item
+      setSelectedIndex(index);
+    } else if (selectedIndex === index) {
+      // Tapped the same item - deselect
+      setSelectedIndex(null);
+    } else {
+      // Second tap - swap the items
+      setOrderedItems(prev => {
+        const newItems = [...prev];
+        const temp = newItems[selectedIndex];
+        newItems[selectedIndex] = newItems[index];
+        newItems[index] = temp;
+        return newItems;
       });
+      setSelectedIndex(null);
     }
-  }, []);
+  }, [selectedIndex, showResult]);
 
   const handleCheck = () => {
     let correctCount = 0;
@@ -126,6 +107,7 @@ export const DragDropGame = ({ items, onComplete }: DragDropGameProps) => {
     setOrderedItems([...items].sort(() => Math.random() - 0.5));
     setShowResult(false);
     setScore(0);
+    setSelectedIndex(null);
   };
 
   const isItemCorrect = (item: DragDropItem, index: number) => {
@@ -135,34 +117,37 @@ export const DragDropGame = ({ items, onComplete }: DragDropGameProps) => {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">🎯 سحب وإفلات</h2>
+        <h2 className="text-2xl font-bold mb-2">🎯 رتب العناصر</h2>
         <p className="text-muted-foreground text-lg">
-          رتب العناصر بالترتيب الصحيح
+          انقر على عنصر ثم انقر على عنصر آخر لتبديل مواقعهما
         </p>
+        {selectedIndex !== null && (
+          <motion.p 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-primary font-medium mt-2"
+          >
+            ✨ تم اختيار عنصر - انقر على عنصر آخر للتبديل
+          </motion.p>
+        )}
       </div>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={orderedItems.map(item => item.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-3">
-            {orderedItems.map((item, index) => (
-              <SortableItem
-                key={item.id}
-                id={item.id}
-                content={item.content}
-                isCorrect={isItemCorrect(item, index)}
-                showResult={showResult}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      <div className="space-y-3">
+        <AnimatePresence mode="popLayout">
+          {orderedItems.map((item, index) => (
+            <TapItem
+              key={item.id}
+              id={item.id}
+              content={item.content}
+              index={index}
+              isSelected={selectedIndex === index}
+              isCorrect={isItemCorrect(item, index)}
+              showResult={showResult}
+              onTap={handleTap}
+            />
+          ))}
+        </AnimatePresence>
+      </div>
 
       <div className="mt-8 text-center space-y-4">
         {!showResult ? (
