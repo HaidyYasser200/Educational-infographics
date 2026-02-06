@@ -79,7 +79,8 @@ export const useProgress = () => {
         studentUsername = profile?.username || user.email || 'Unknown';
       }
 
-      console.log('Saving emotion to database:', { levelNumber, emotion: emotion.emotion, confidence: emotion.confidence, username: studentUsername });
+      const userEmail = user.email || '';
+      console.log('Saving emotion to database:', { levelNumber, emotion: emotion.emotion, confidence: emotion.confidence, username: studentUsername, email: userEmail });
       
       // Save to Lovable Cloud (Supabase)
       const { error: supabaseError, data } = await supabase
@@ -89,7 +90,8 @@ export const useProgress = () => {
           level_number: levelNumber,
           emotion: emotion.emotion,
           confidence: emotion.confidence,
-          username: studentUsername
+          username: studentUsername,
+          email: userEmail
         })
         .select();
 
