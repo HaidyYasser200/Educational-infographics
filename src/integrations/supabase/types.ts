@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           captured_at: string
           confidence: number | null
+          email: string | null
           emotion: string
           id: string
           level_number: number
@@ -27,6 +28,7 @@ export type Database = {
         Insert: {
           captured_at?: string
           confidence?: number | null
+          email?: string | null
           emotion: string
           id?: string
           level_number: number
@@ -36,6 +38,7 @@ export type Database = {
         Update: {
           captured_at?: string
           confidence?: number | null
+          email?: string | null
           emotion?: string
           id?: string
           level_number?: number
@@ -50,6 +53,7 @@ export type Database = {
           created_at: string
           current_level: number | null
           display_name: string | null
+          email: string | null
           id: string
           total_score: number | null
           updated_at: string
@@ -61,6 +65,7 @@ export type Database = {
           created_at?: string
           current_level?: number | null
           display_name?: string | null
+          email?: string | null
           id?: string
           total_score?: number | null
           updated_at?: string
@@ -72,6 +77,7 @@ export type Database = {
           created_at?: string
           current_level?: number | null
           display_name?: string | null
+          email?: string | null
           id?: string
           total_score?: number | null
           updated_at?: string
