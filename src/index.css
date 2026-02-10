@@ -101,6 +101,10 @@
     direction: rtl;
   }
 
+  html[dir="ltr"] {
+    direction: ltr;
+  }
+
   body {
     @apply bg-background text-foreground font-cairo;
   }

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/hooks/useLanguage';
 import type { LessonContent } from '@/data/stages';
 
 interface LessonCardProps {
@@ -11,6 +12,8 @@ interface LessonCardProps {
 }
 
 export const LessonCard = ({ lesson, stageNumber, stageIcon, onStartGame }: LessonCardProps) => {
+  const { t } = useLanguage();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -22,22 +25,17 @@ export const LessonCard = ({ lesson, stageNumber, stageIcon, onStartGame }: Less
           <div className="flex items-center justify-between">
             <span className="text-5xl">{stageIcon}</span>
             <span className="bg-white/20 px-4 py-2 rounded-full text-lg font-bold">
-              المرحلة {stageNumber}
+              {t('game.stage')} {stageNumber}
             </span>
           </div>
-          <CardTitle className="text-3xl font-bold mt-4">
-            {lesson.title}
-          </CardTitle>
+          <CardTitle className="text-3xl font-bold mt-4">{lesson.title}</CardTitle>
         </CardHeader>
         <CardContent className="p-6 space-y-6">
-          <p className="text-xl leading-relaxed text-muted-foreground">
-            {lesson.description}
-          </p>
-          
+          <p className="text-xl leading-relaxed text-muted-foreground">{lesson.description}</p>
           <div className="space-y-4">
             <h3 className="text-xl font-bold flex items-center gap-2">
               <span>📌</span>
-              النقاط الأساسية:
+              {t('game.keyPoints')}
             </h3>
             <ul className="space-y-3">
               {lesson.keyPoints.map((point, index) => (
@@ -54,17 +52,10 @@ export const LessonCard = ({ lesson, stageNumber, stageIcon, onStartGame }: Less
               ))}
             </ul>
           </div>
-          
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Button
-              onClick={onStartGame}
-              className="w-full btn-game gradient-secondary text-xl py-8"
-            >
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button onClick={onStartGame} className="w-full btn-game gradient-secondary text-xl py-8">
               <span className="text-2xl ml-2">🎮</span>
-              ابدأ اللعبة الآن!
+              {t('game.startGame')}
             </Button>
           </motion.div>
         </CardContent>

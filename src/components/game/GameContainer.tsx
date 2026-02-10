@@ -7,7 +7,8 @@ import { MCQGame } from './MCQGame';
 import { FillBlankGame } from './FillBlankGame';
 import { DragDropGame } from './DragDropGame';
 import { EmotionDisplay } from './EmotionDisplay';
-import { stages } from '@/data/stages';
+import { getStagesByLanguage } from '@/data/stages';
+import { useLanguage } from '@/hooks/useLanguage';
 import { useEmotionDetection, EmotionType } from '@/hooks/useEmotionDetection';
 import { useProgress } from '@/hooks/useProgress';
 import { useToast } from '@/hooks/use-toast';
@@ -26,223 +27,127 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
   const [cameraPermission, setCameraPermission] = useState<'pending' | 'granted' | 'denied'>('pending');
   const emotionsCollected = useRef<EmotionType[]>([]);
   
+  const { t, language } = useLanguage();
+  const stages = getStagesByLanguage(language);
   const stage = stages.find(s => s.id === stageId);
   const { 
-    videoRef, 
-    currentEmotion, 
-    isModelLoaded, 
-    isLoading: isModelLoading,
-    startCamera, 
-    stopCamera, 
-    startDetection,
-    emotionHistory 
+    videoRef, currentEmotion, isModelLoaded, isLoading: isModelLoading,
+    startCamera, stopCamera, startDetection, emotionHistory 
   } = useEmotionDetection();
   const { saveProgress, logEmotion } = useProgress();
   const { toast } = useToast();
 
-  // Request camera permission and start detection
   const requestCameraPermission = useCallback(async () => {
-    console.log('Requesting camera permission...');
-    // First set permission to granted so the video element renders
     setCameraPermission('granted');
-    
-    // Small delay to let video element render
     await new Promise(resolve => setTimeout(resolve, 200));
-    
     const success = await startCamera();
     if (success) {
-      // Wait for models to load if not already loaded
-      if (!isModelLoaded) {
-        console.log('Waiting for models to load...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-      
-      // Start detection every 5 seconds for better sampling
+      if (!isModelLoaded) await new Promise(resolve => setTimeout(resolve, 2000));
       startDetection(5000);
-      toast({
-        title: "تم تفعيل الكاميرا",
-        description: "سيتم تحليل تعابيرك أثناء اللعب"
-      });
-      console.log('Camera started successfully, detection started');
+      toast({ title: t('game.cameraEnabled'), description: t('game.cameraDesc') });
     } else {
       setCameraPermission('denied');
-      toast({
-        title: "فشل تشغيل الكاميرا",
-        description: "يرجى السماح بالوصول للكاميرا",
-        variant: "destructive"
-      });
-      console.log('Camera permission denied');
+      toast({ title: t('game.cameraFailed'), description: t('game.cameraFailedDesc'), variant: "destructive" });
     }
-  }, [startCamera, startDetection, toast, isModelLoaded]);
+  }, [startCamera, startDetection, toast, isModelLoaded, t]);
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => {
-      stopCamera();
-      emotionsCollected.current = [];
-    };
+    return () => { stopCamera(); emotionsCollected.current = []; };
   }, [stopCamera]);
 
-  // Collect emotions during gameplay (don't save yet, just collect)
   useEffect(() => {
     if (currentEmotion && phase === 'game') {
       emotionsCollected.current.push(currentEmotion.emotion);
-      console.log('Emotion collected:', currentEmotion.emotion, 'Total:', emotionsCollected.current.length);
     }
   }, [currentEmotion, phase]);
 
-  // Calculate dominant emotion from collected emotions
   const getDominantEmotion = useCallback(() => {
     const emotions = emotionsCollected.current;
     if (emotions.length === 0) return null;
-
     const frequency: Record<string, number> = {};
-    emotions.forEach(e => {
-      frequency[e] = (frequency[e] || 0) + 1;
-    });
-
+    emotions.forEach(e => { frequency[e] = (frequency[e] || 0) + 1; });
     let maxCount = 0;
     let dominant: EmotionType = 'neutral';
     Object.entries(frequency).forEach(([emotion, count]) => {
-      if (count > maxCount) {
-        maxCount = count;
-        dominant = emotion as EmotionType;
-      }
+      if (count > maxCount) { maxCount = count; dominant = emotion as EmotionType; }
     });
-
-    console.log('Emotion frequency:', frequency, 'Dominant:', dominant);
     return dominant;
   }, []);
 
   const handleStartGame = useCallback(() => {
     setPhase('game');
     setStartTime(Date.now());
-    emotionsCollected.current = []; // Reset emotions for new game
-    
-    // Request camera if not already done
-    if (cameraPermission === 'pending') {
-      requestCameraPermission();
-    }
+    emotionsCollected.current = [];
+    if (cameraPermission === 'pending') requestCameraPermission();
   }, [cameraPermission, requestCameraPermission]);
 
   const handleGameComplete = useCallback(async (score: number) => {
     setPhase('complete');
     stopCamera();
-
     const timeSpent = Math.round((Date.now() - startTime) / 1000);
     const isCompleted = stage ? score >= stage.requiredScore : false;
-
-    // Get dominant emotion and save it ONCE at the end
     const dominantEmotion = getDominantEmotion();
-    console.log('Game complete! Dominant emotion:', dominantEmotion, 'Collected emotions:', emotionsCollected.current.length);
     
     if (dominantEmotion) {
-      // Calculate average confidence for the dominant emotion
       const emotionMap: Record<string, { arabic: string; emoji: string }> = {
-        happy: { arabic: 'سعيد', emoji: '😊' },
-        neutral: { arabic: 'محايد', emoji: '😐' },
-        sad: { arabic: 'حزين', emoji: '😢' },
-        angry: { arabic: 'غضب', emoji: '😠' },
-        surprised: { arabic: 'مندهش', emoji: '😲' },
-        fearful: { arabic: 'خائف', emoji: '😨' },
-        disgusted: { arabic: 'ملل', emoji: '😴' }
+        happy: { arabic: t('emotion.happy'), emoji: '😊' },
+        neutral: { arabic: t('emotion.neutral'), emoji: '😐' },
+        sad: { arabic: t('emotion.sad'), emoji: '😢' },
+        angry: { arabic: t('emotion.angry'), emoji: '😠' },
+        surprised: { arabic: t('emotion.surprised'), emoji: '😲' },
+        fearful: { arabic: t('emotion.fearful'), emoji: '😨' },
+        disgusted: { arabic: t('emotion.disgusted'), emoji: '😴' }
       };
-      
       const dominantCount = emotionsCollected.current.filter(e => e === dominantEmotion).length;
       const totalCount = emotionsCollected.current.length;
       const confidence = totalCount > 0 ? dominantCount / totalCount : 0.5;
-      
       const emotionResult = {
-        emotion: dominantEmotion,
-        confidence: confidence,
-        arabicLabel: emotionMap[dominantEmotion]?.arabic || 'محايد',
+        emotion: dominantEmotion, confidence,
+        arabicLabel: emotionMap[dominantEmotion]?.arabic || t('emotion.neutral'),
         emoji: emotionMap[dominantEmotion]?.emoji || '😐'
       };
-      
-      // Save ONLY the dominant emotion at the end of the stage
-      const result = await logEmotion(stageId, emotionResult);
-      console.log('Emotion saved to database:', result);
-      
+      await logEmotion(stageId, emotionResult);
       toast({
-        title: `الشعور السائد: ${emotionResult.emoji} ${emotionResult.arabicLabel}`,
-        description: `تم تسجيل شعورك في المرحلة ${stageId}`
+        title: `${t('game.dominantEmotion')} ${emotionResult.emoji} ${emotionResult.arabicLabel}`,
+        description: `${t('game.emotionRecorded')} ${stageId}`
       });
-    } else {
-      console.log('No emotions collected during this game');
     }
-
-    // Reset collected emotions
     emotionsCollected.current = [];
-
     await saveProgress({
-      levelNumber: stageId,
-      gameType: stage?.gameType || 'unknown',
-      score,
-      isCompleted,
-      timeSpentSeconds: timeSpent,
-      attempts: 1
+      levelNumber: stageId, gameType: stage?.gameType || 'unknown',
+      score, isCompleted, timeSpentSeconds: timeSpent, attempts: 1
     });
-
-    setTimeout(() => {
-      onComplete(score);
-    }, 2000);
-  }, [stageId, stage, startTime, saveProgress, stopCamera, onComplete, getDominantEmotion, logEmotion, toast]);
+    setTimeout(() => { onComplete(score); }, 2000);
+  }, [stageId, stage, startTime, saveProgress, stopCamera, onComplete, getDominantEmotion, logEmotion, toast, t]);
 
   if (!stage) {
     return (
       <div className="text-center p-8">
-        <p className="text-xl">المرحلة غير موجودة</p>
-        <Button onClick={onBack} className="mt-4">
-          العودة
-        </Button>
+        <p className="text-xl">{t('game.stageNotFound')}</p>
+        <Button onClick={onBack} className="mt-4">{t('game.goBack')}</Button>
       </div>
     );
   }
 
   const renderGame = () => {
     switch (stage.gameType) {
-      case 'matching':
-        return stage.matchingItems && (
-          <MatchingGame items={stage.matchingItems} onComplete={handleGameComplete} />
-        );
-      case 'mcq':
-        return stage.mcqQuestions && (
-          <MCQGame questions={stage.mcqQuestions} onComplete={handleGameComplete} />
-        );
-      case 'fillblank':
-        return stage.fillBlankQuestions && (
-          <FillBlankGame questions={stage.fillBlankQuestions} onComplete={handleGameComplete} />
-        );
-      case 'dragdrop':
-        return stage.dragDropItems && (
-          <DragDropGame items={stage.dragDropItems} onComplete={handleGameComplete} />
-        );
-      default:
-        return null;
+      case 'matching': return stage.matchingItems && <MatchingGame items={stage.matchingItems} onComplete={handleGameComplete} />;
+      case 'mcq': return stage.mcqQuestions && <MCQGame questions={stage.mcqQuestions} onComplete={handleGameComplete} />;
+      case 'fillblank': return stage.fillBlankQuestions && <FillBlankGame questions={stage.fillBlankQuestions} onComplete={handleGameComplete} />;
+      case 'dragdrop': return stage.dragDropItems && <DragDropGame items={stage.dragDropItems} onComplete={handleGameComplete} />;
+      default: return null;
     }
   };
 
   return (
     <div className="min-h-screen p-4 pb-20">
-      {/* Back Button */}
       <div className="max-w-4xl mx-auto mb-4">
-        <Button variant="ghost" onClick={onBack} className="text-lg">
-          → العودة للقائمة
-        </Button>
+        <Button variant="ghost" onClick={onBack} className="text-lg">{t('game.back')}</Button>
       </div>
-
-      {/* Main Content */}
       {phase === 'lesson' && (
-        <LessonCard
-          lesson={stage.lesson}
-          stageNumber={stage.id}
-          stageIcon={stage.icon}
-          onStartGame={handleStartGame}
-        />
+        <LessonCard lesson={stage.lesson} stageNumber={stage.id} stageIcon={stage.icon} onStartGame={handleStartGame} />
       )}
-
       {phase === 'game' && renderGame()}
-
       {phase === 'complete' && (
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
@@ -251,21 +156,15 @@ export const GameContainer = ({ stageId, onBack, onComplete }: GameContainerProp
         >
           <div className="text-center p-8">
             <div className="text-8xl mb-4 animate-bounce-in">🎉</div>
-            <h2 className="text-4xl font-bold mb-2">أحسنت!</h2>
-            <p className="text-xl text-muted-foreground">
-              أكملت المرحلة {stage.id}
-            </p>
+            <h2 className="text-4xl font-bold mb-2">{t('game.wellDone')}</h2>
+            <p className="text-xl text-muted-foreground">{t('game.completedStage')} {stage.id}</p>
           </div>
         </motion.div>
       )}
-
-      {/* Emotion Display - Show even while loading */}
       {cameraPermission === 'granted' && phase === 'game' && (
         <EmotionDisplay
-          videoRef={videoRef}
-          currentEmotion={currentEmotion}
-          isActive={isModelLoaded}
-          isLoading={isModelLoading}
+          videoRef={videoRef} currentEmotion={currentEmotion}
+          isActive={isModelLoaded} isLoading={isModelLoading}
           emotionsCount={emotionsCollected.current.length}
         />
       )}
