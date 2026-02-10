@@ -369,3 +369,19 @@ export const getGameTypeIcon = (type: GameType): string => {
   };
   return icons[type];
 };
+
+// Language-aware exports
+import { stagesEn } from './stages-en';
+import type { Language } from '@/hooks/useLanguage';
+
+export const getStagesByLanguage = (lang: Language): Stage[] => {
+  return lang === 'en' ? stagesEn : stages;
+};
+
+export const getGameTypeNameByLang = (type: GameType, lang: Language): string => {
+  const names: Record<Language, Record<GameType, string>> = {
+    ar: { matching: 'لعبة التوصيل', mcq: 'اختيار من متعدد', fillblank: 'أكمل الفراغ', dragdrop: 'ترتيب العناصر' },
+    en: { matching: 'Matching', mcq: 'Multiple Choice', fillblank: 'Fill Blank', dragdrop: 'Sort Items' }
+  };
+  return names[lang][type];
+};

@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, AuthProvider } from '@/hooks/useAuth';
 import { useProgress } from '@/hooks/useProgress';
+import { useLanguage, LanguageProvider } from '@/hooks/useLanguage';
 import { AuthForm } from '@/components/auth/AuthForm';
 import { StageMap } from '@/components/game/StageMap';
 import { GameContainer } from '@/components/game/GameContainer';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { Button } from '@/components/ui/button';
-import { stages } from '@/data/stages';
+import { getStagesByLanguage } from '@/data/stages';
 import { initFirebase } from '@/lib/firebase';
 
 type AppView = 'stages' | 'game' | 'dashboard';
@@ -15,17 +16,18 @@ type AppView = 'stages' | 'game' | 'dashboard';
 const MainApp = () => {
   const { user, loading, signOut } = useAuth();
   const { getProfile, updateCurrentLevel } = useProgress();
+  const { t, language, toggleLanguage } = useLanguage();
   const [currentLevel, setCurrentLevel] = useState(1);
   const [completedLevels, setCompletedLevels] = useState<number[]>([]);
   const [selectedStage, setSelectedStage] = useState<number | null>(null);
   const [view, setView] = useState<AppView>('stages');
 
-  // Initialize Firebase
+  const stages = getStagesByLanguage(language);
+
   useEffect(() => {
     initFirebase();
   }, []);
 
-  // Load user progress
   useEffect(() => {
     const loadProgress = async () => {
       if (user) {
@@ -47,10 +49,7 @@ const MainApp = () => {
     if (selectedStage) {
       const stage = stages.find(s => s.id === selectedStage);
       if (stage && score >= stage.requiredScore) {
-        // Mark as completed
         setCompletedLevels(prev => [...new Set([...prev, selectedStage])]);
-        
-        // Unlock next level
         if (selectedStage >= currentLevel && selectedStage < stages.length) {
           const newLevel = selectedStage + 1;
           setCurrentLevel(newLevel);
@@ -58,20 +57,17 @@ const MainApp = () => {
         }
       }
     }
-    
-    // Return to stage map
     setTimeout(() => {
       setView('stages');
       setSelectedStage(null);
     }, 2000);
-  }, [selectedStage, currentLevel, updateCurrentLevel]);
+  }, [selectedStage, currentLevel, updateCurrentLevel, stages]);
 
   const handleBackToStages = useCallback(() => {
     setView('stages');
     setSelectedStage(null);
   }, []);
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -81,14 +77,13 @@ const MainApp = () => {
           className="text-center"
         >
           <div className="text-7xl mb-4 animate-float">🎨</div>
-          <h1 className="text-3xl font-bold text-gradient mb-2">تعلم الإنفوجرافيك</h1>
-          <p className="text-xl text-muted-foreground">جاري التحميل...</p>
+          <h1 className="text-3xl font-bold text-gradient mb-2">{t('app.title')}</h1>
+          <p className="text-xl text-muted-foreground">{t('app.loading')}</p>
         </motion.div>
       </div>
     );
   }
 
-  // Auth screen
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -99,29 +94,35 @@ const MainApp = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-3xl">🎨</span>
-            <h1 className="text-xl font-bold">تعلم الإنفوجرافيك</h1>
+            <h1 className="text-xl font-bold">{t('app.title')}</h1>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleLanguage}
+              className="font-bold"
+            >
+              {language === 'ar' ? 'EN' : 'عربي'}
+            </Button>
             <Button
               variant={view === 'dashboard' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setView(view === 'dashboard' ? 'stages' : 'dashboard')}
             >
-              📊 التقارير
+              {t('app.reports')}
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
-              🚪 خروج
+              {t('app.logout')}
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="py-6">
         <AnimatePresence mode="wait">
           {view === 'stages' && (
@@ -173,9 +174,11 @@ const MainApp = () => {
 
 const Index = () => {
   return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <MainApp />
+      </AuthProvider>
+    </LanguageProvider>
   );
 };
 

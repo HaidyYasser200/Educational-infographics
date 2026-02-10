@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/hooks/useLanguage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,6 +14,7 @@ export const AuthForm = () => {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
+  const { t, language, toggleLanguage } = useLanguage();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,47 +25,25 @@ export const AuthForm = () => {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {
-          toast({
-            title: "خطأ في تسجيل الدخول",
-            description: "البريد الإلكتروني أو كلمة المرور غير صحيحة",
-            variant: "destructive"
-          });
+          toast({ title: t('auth.loginError'), description: t('auth.loginErrorDesc'), variant: "destructive" });
         } else {
-          toast({
-            title: "مرحباً بك!",
-            description: "تم تسجيل الدخول بنجاح"
-          });
+          toast({ title: t('auth.welcome'), description: t('auth.loginSuccess') });
         }
       } else {
         if (!username.trim()) {
-          toast({
-            title: "خطأ",
-            description: "يرجى إدخال اسم المستخدم",
-            variant: "destructive"
-          });
+          toast({ title: t('auth.usernameError'), description: t('auth.usernameErrorDesc'), variant: "destructive" });
           setLoading(false);
           return;
         }
         const { error } = await signUp(email, password, username);
         if (error) {
-          toast({
-            title: "خطأ في إنشاء الحساب",
-            description: error.message,
-            variant: "destructive"
-          });
+          toast({ title: t('auth.signupError'), description: error.message, variant: "destructive" });
         } else {
-          toast({
-            title: "تم إنشاء الحساب!",
-            description: "يرجى التحقق من بريدك الإلكتروني لتأكيد الحساب"
-          });
+          toast({ title: t('auth.signupSuccess'), description: t('auth.signupSuccessDesc') });
         }
       }
     } catch (err) {
-      toast({
-        title: "خطأ",
-        description: "حدث خطأ غير متوقع",
-        variant: "destructive"
-      });
+      toast({ title: t('auth.usernameError'), description: t('auth.unexpectedError'), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -77,51 +57,49 @@ export const AuthForm = () => {
     >
       <Card className="border-2 shadow-xl">
         <CardHeader className="text-center space-y-2">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="text-6xl mb-4"
-          >
+          <div className="flex justify-end">
+            <Button variant="ghost" size="sm" onClick={toggleLanguage} className="font-bold">
+              {language === 'ar' ? 'EN' : 'عربي'}
+            </Button>
+          </div>
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-6xl mb-4">
             🎨
           </motion.div>
           <CardTitle className="text-3xl font-bold text-gradient">
-            تعلم الإنفوجرافيك
+            {t('app.title')}
           </CardTitle>
           <CardDescription className="text-lg">
-            {isLogin ? 'سجل دخولك للمتابعة' : 'أنشئ حسابك الآن'}
+            {isLogin ? t('auth.login') : t('auth.signup')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-              >
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
                 <Input
                   type="text"
-                  placeholder="اسم المستخدم"
+                  placeholder={t('auth.username')}
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="text-right text-lg py-6"
+                  className="text-lg py-6"
                   required={!isLogin}
                 />
               </motion.div>
             )}
             <Input
               type="email"
-              placeholder="البريد الإلكتروني"
+              placeholder={t('auth.email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="text-right text-lg py-6"
+              className="text-lg py-6"
               required
             />
             <Input
               type="password"
-              placeholder="كلمة المرور"
+              placeholder={t('auth.password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="text-right text-lg py-6"
+              className="text-lg py-6"
               required
             />
             <Button
@@ -129,17 +107,16 @@ export const AuthForm = () => {
               className="w-full btn-game gradient-primary text-xl py-6"
               disabled={loading}
             >
-              {loading ? '⏳ جاري التحميل...' : isLogin ? '🚀 تسجيل الدخول' : '✨ إنشاء حساب'}
+              {loading ? t('auth.loading') : isLogin ? t('auth.loginBtn') : t('auth.signupBtn')}
             </Button>
           </form>
-          
           <div className="mt-6 text-center">
             <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
               className="text-primary hover:underline text-lg font-medium"
             >
-              {isLogin ? 'ليس لديك حساب؟ أنشئ حساباً جديداً' : 'لديك حساب؟ سجل دخولك'}
+              {isLogin ? t('auth.noAccount') : t('auth.hasAccount')}
             </button>
           </div>
         </CardContent>
