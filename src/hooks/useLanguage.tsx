@@ -120,7 +120,7 @@ const translations: Record<Language, Record<string, string>> = {
     'dash.minutesPlayed': 'دقيقة لعب',
     'dash.emotionAnalysis': 'تحليل مشاعر',
     'dash.stageResults': 'نتائج المراحل',
-    'dash.emotionDist': 'توزيع المشاعر',
+    'dash.emotionDist': 'تحليل المشاعر',
     'dash.noEmotionData': 'لا توجد بيانات مشاعر بعد',
     'dash.activityLog': 'سجل النشاط',
     'dash.noActivity': 'لم تبدأ اللعب بعد',
