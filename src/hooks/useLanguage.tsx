@@ -248,7 +248,7 @@ const translations: Record<Language, Record<string, string>> = {
     'dash.minutesPlayed': 'Minutes Played',
     'dash.emotionAnalysis': 'Emotion Analysis',
     'dash.stageResults': 'Stage Results',
-    'dash.emotionDist': 'Emotion Distribution',
+    'dash.emotionDist': 'Emotion Analysis',
     'dash.noEmotionData': 'No emotion data yet',
     'dash.activityLog': 'Activity Log',
     'dash.noActivity': 'No activity yet',
